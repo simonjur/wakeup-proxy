@@ -1,6 +1,6 @@
 services:
   immich-wake-proxy:
-    build: .
+    build: files
     # or: image: ghcr.io/you/immich-wake-proxy:latest
     container_name: immich-wake-proxy
     restart: unless-stopped
