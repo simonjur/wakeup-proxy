@@ -1,0 +1,22 @@
+{
+  "name": "immich-wake-proxy",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Reverse proxy that wakes an Immich server via Home Assistant and shows a waiting screen until it's up.",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "start": "node src/server.ts",
+    "dev": "node --watch src/server.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "http-proxy-3": "^1.20.5"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.8.0"
+  }
+}
