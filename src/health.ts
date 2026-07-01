@@ -7,7 +7,7 @@ let cached: { up: boolean; at: number } | null = null;
 
 async function probe(): Promise<boolean> {
   try {
-    const res = await fetch(config.immichUrl + config.immichHealthPath, {
+    const res = await fetch(config.immich.url + config.immich.healthPath, {
       method: "GET",
       redirect: "manual",
       signal: AbortSignal.timeout(config.healthTimeoutMs),

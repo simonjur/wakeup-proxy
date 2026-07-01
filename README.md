@@ -33,20 +33,28 @@ Then point your browser / external reverse proxy / Tailscale at the Pi on
 
 All via env vars (see `.env.example`). Key ones:
 
-| Var | Default | Notes |
-|-----|---------|-------|
-| `IMMICH_URL` | – (required) | e.g. `http://192.168.1.10:2283` |
-| `IMMICH_HEALTH_PATH` | `/api/server/ping` | treated as up on any non-5xx response |
-| `PORT` / `HOST` | `3000` / `0.0.0.0` | proxy listen address |
-| `WAKE_COOLDOWN_MS` | `60000` | min gap between wake calls; also the WoL re-send interval while still booting |
-| `POLL_INTERVAL_MS` | `3000` | waiting-page poll cadence |
+| Var                  | Default            | Notes                                                                         |
+| -------------------- | ------------------ | ----------------------------------------------------------------------------- |
+| `IMMICH_URL`         | – (required)       | e.g. `http://192.168.1.10:2283`                                               |
+| `IMMICH_HEALTH_PATH` | `/api/server/ping` | treated as up on any non-5xx response                                         |
+| `PORT` / `HOST`      | `3000` / `0.0.0.0` | proxy listen address                                                          |
+| `WAKE_COOLDOWN_MS`   | `60000`            | min gap between wake calls; also the WoL re-send interval while still booting |
+| `POLL_INTERVAL_MS`   | `3000`             | waiting-page poll cadence                                                     |
 
-### Wake action (Home Assistant)
+### Wake action
+
+Wake is handled by pluggable services that all implement a common
+`ServiceWakeUpTrigger` interface (`triggerWake()`). Any number can be enabled at
+once — every configured service is fired on wake, and the wake succeeds as long
+as at least one of them does. Two are built in:
+
+#### Home Assistant
 
 Either a **webhook** (no auth) or a **service call** (long-lived token). If
 `HA_WAKE_WEBHOOK_URL` is set it wins.
 
 **Service call — run a script:**
+
 ```
 HA_BASE_URL=http://homeassistant.local:8123
 HA_TOKEN=<long-lived-access-token>
@@ -55,6 +63,7 @@ HA_WAKE_ENTITY_ID=script.wake_immich_server
 ```
 
 **Service call — direct Wake-on-LAN** (needs HA's `wake_on_lan` integration):
+
 ```
 HA_BASE_URL=http://homeassistant.local:8123
 HA_TOKEN=<long-lived-access-token>
@@ -65,7 +74,15 @@ HA_WAKE_DATA={"mac":"AA:BB:CC:DD:EE:FF"}
 The body sent is `{entity_id: HA_WAKE_ENTITY_ID, ...HA_WAKE_DATA}`. Leave
 `HA_WAKE_ENTITY_ID` empty for service calls that don't take an entity (like WoL).
 
-If Home Assistant isn't configured the proxy still runs and shows the waiting
+#### Shell command
+
+Runs an arbitrary command via `/bin/sh -c` (subject to `WAKE_TIMEOUT_MS`):
+
+```
+WAKE_SHELL_COMMAND=etherwake AA:BB:CC:DD:EE:FF
+```
+
+If no wake service is configured the proxy still runs and shows the waiting
 page — the wake just becomes a logged no-op, handy for wiring things up
 incrementally.
 

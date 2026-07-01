@@ -10,20 +10,21 @@ import { createProxyServer } from "http-proxy-3";
 import { config } from "./config.ts";
 import { isImmichUp } from "./health.ts";
 import { checkAndWake } from "./state.ts";
+import { enabledTriggers } from "./wake.ts";
 import { waitingPage } from "./waiting-page.ts";
 
 const STATUS_PATH = "/__wake/status";
 
 const proxy = createProxyServer({
-  target: config.immichUrl,
+  target: config.immich.url,
   ws: true,
   xfwd: true, // adds X-Forwarded-For / -Host / -Proto for Immich
   changeOrigin: false, // preserve the original Host header
-  proxyTimeout: 30000,
+  proxyTimeout: 30_000,
 });
 
-proxy.on("error", (err: Error, _req, resOrSocket) => {
-  console.error("[proxy] error:", err.message);
+proxy.on("error", (error: Error, _request, resOrSocket) => {
+  console.error("[proxy] error:", error.message);
   if (resOrSocket && "writeHead" in resOrSocket) {
     const res = resOrSocket as http.ServerResponse;
     if (!res.headersSent) {
@@ -54,16 +55,19 @@ function sendWaitingPage(res: http.ServerResponse): void {
   res.end(html);
 }
 
-function wantsHtml(req: http.IncomingMessage): boolean {
-  return (req.headers["accept"] ?? "").includes("text/html");
+function wantsHtml(request: http.IncomingMessage): boolean {
+  return (request.headers["accept"] ?? "").includes("text/html");
 }
 
-const server = http.createServer((req, res) => {
-  void handleRequest(req, res);
+const server = http.createServer((request, res) => {
+  void handleRequest(request, res);
 });
 
-async function handleRequest(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
-  const path = (req.url ?? "/").split("?")[0];
+async function handleRequest(
+  request: http.IncomingMessage,
+  res: http.ServerResponse,
+): Promise<void> {
+  const path = (request.url ?? "/").split("?", 1)[0];
 
   // Internal status endpoint used by the waiting page poller.
   if (path === STATUS_PATH) {
@@ -73,13 +77,13 @@ async function handleRequest(req: http.IncomingMessage, res: http.ServerResponse
   }
 
   if (await isImmichUp()) {
-    proxy.web(req, res);
+    proxy.web(request, res);
     return;
   }
 
   // Upstream is down: kick off a wake and respond appropriately.
   await checkAndWake();
-  if (wantsHtml(req)) {
+  if (wantsHtml(request)) {
     sendWaitingPage(res);
   } else {
     // Background/API/asset request while asleep – don't proxy, fail fast.
@@ -88,10 +92,10 @@ async function handleRequest(req: http.IncomingMessage, res: http.ServerResponse
 }
 
 // Websocket upgrades: only proxy when upstream is actually up.
-server.on("upgrade", (req, socket, head) => {
+server.on("upgrade", (request, socket, head) => {
   void (async () => {
     if (await isImmichUp()) {
-      proxy.ws(req, socket, head);
+      proxy.ws(request, socket, head);
     } else {
       socket.destroy();
     }
@@ -100,13 +104,12 @@ server.on("upgrade", (req, socket, head) => {
 
 server.listen(config.port, config.host, () => {
   console.log(`immich-wake-proxy listening on http://${config.host}:${config.port}`);
-  console.log(`  -> upstream: ${config.immichUrl} (health: ${config.immichHealthPath})`);
-  if (config.ha.enabled) {
-    console.log(
-      `  -> wake: ${config.ha.webhookUrl ? "webhook" : config.ha.service} (cooldown ${config.wakeCooldownMs}ms)`,
-    );
+  console.log(`  -> upstream: ${config.immich.url} (health: ${config.immich.healthPath})`);
+  if (enabledTriggers.length > 0) {
+    const names = enabledTriggers.map((t) => t.name).join(", ");
+    console.log(`  -> wake: ${names} (cooldown ${config.wakeCooldownMs}ms)`);
   } else {
-    console.warn("  -> wake: DISABLED (Home Assistant not configured; waiting page will still show)");
+    console.warn("  -> wake: DISABLED (no wake service configured; waiting page will still show)");
   }
 });
 
