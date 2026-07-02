@@ -1,15 +1,21 @@
 // Centralised configuration loaded from environment variables and validated
 // with ajv. Everything is resolved once at startup so the rest of the app can
-// stay synchronous. The config is split by concern: proxy, immich, and the
-// individual wake services (Home Assistant, shell command).
+// stay synchronous. The config is split by concern: proxy, upstream, waiting
+// page, and the individual wake services (Home Assistant, shell command).
 
 import { Ajv, type JSONSchemaType } from "ajv";
 
 // ---- Public config shape -------------------------------------------------
 
-export interface ImmichConfig {
+export interface UpstreamConfig {
   url: string;
   healthPath: string;
+}
+
+export interface WaitingConfig {
+  // Copy shown on the self-refreshing waiting page while the upstream wakes.
+  title: string;
+  message: string;
 }
 
 export interface HomeAssistantConfig {
@@ -44,7 +50,8 @@ export interface Config {
   // Client-side polling cadence for the waiting page, in milliseconds.
   pollIntervalMs: number;
 
-  immich: ImmichConfig;
+  upstream: UpstreamConfig;
+  waiting: WaitingConfig;
   ha: HomeAssistantConfig;
   shell: ShellCommandConfig;
 }
@@ -73,9 +80,13 @@ interface RawConfig {
   wakeCooldownMs: number;
   wakeTimeoutMs: number;
   pollIntervalMs: number;
-  immich: {
+  upstream: {
     url: string;
     healthPath: string;
+  };
+  waiting: {
+    title: string;
+    message: string;
   };
   ha: RawHomeAssistant;
   shell: RawShell;
@@ -94,14 +105,28 @@ const schema: JSONSchemaType<RawConfig> = {
     wakeTimeoutMs: { type: "integer", default: 5000 },
     pollIntervalMs: { type: "integer", default: 3000 },
 
-    immich: {
+    upstream: {
       type: "object",
       additionalProperties: false,
       properties: {
         url: { type: "string", minLength: 1 },
-        healthPath: { type: "string", default: "/api/server/ping" },
+        healthPath: { type: "string", default: "/" },
       },
       required: ["url"],
+    },
+
+    waiting: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        title: { type: "string", default: "Waking the server" },
+        message: {
+          type: "string",
+          default:
+            "This usually takes a moment. You'll be redirected automatically once it's ready.",
+        },
+      },
+      required: [],
     },
 
     ha: {
@@ -126,7 +151,7 @@ const schema: JSONSchemaType<RawConfig> = {
       required: [],
     },
   },
-  required: ["immich", "ha", "shell"],
+  required: ["upstream", "waiting", "ha", "shell"],
 };
 
 // ---- Helpers -------------------------------------------------------------
@@ -183,9 +208,13 @@ function loadConfig(): Config {
     wakeCooldownMs: optionalString("WAKE_COOLDOWN_MS"),
     wakeTimeoutMs: optionalString("WAKE_TIMEOUT_MS"),
     pollIntervalMs: optionalString("POLL_INTERVAL_MS"),
-    immich: compact({
-      url: optionalString("IMMICH_URL"),
-      healthPath: optionalString("IMMICH_HEALTH_PATH"),
+    upstream: compact({
+      url: optionalString("UPSTREAM_URL"),
+      healthPath: optionalString("UPSTREAM_HEALTH_PATH"),
+    }),
+    waiting: compact({
+      title: optionalString("WAITING_TITLE"),
+      message: optionalString("WAITING_MESSAGE"),
     }),
     ha: compact(ha),
     shell: compact({
@@ -214,9 +243,13 @@ function loadConfig(): Config {
     wakeCooldownMs: valid.wakeCooldownMs,
     wakeTimeoutMs: valid.wakeTimeoutMs,
     pollIntervalMs: valid.pollIntervalMs,
-    immich: {
-      url: valid.immich.url.replace(/\/+$/, ""),
-      healthPath: valid.immich.healthPath,
+    upstream: {
+      url: valid.upstream.url.replace(/\/+$/, ""),
+      healthPath: valid.upstream.healthPath,
+    },
+    waiting: {
+      title: valid.waiting.title,
+      message: valid.waiting.message,
     },
     ha: {
       webhookUrl: valid.ha.webhookUrl,

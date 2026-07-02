@@ -2,34 +2,50 @@
 // Immich (or the network) on every single request / poll.
 
 import { config } from "./config.ts";
+import type { Logger } from "./logger.ts";
 
-let cached: { up: boolean; at: number } | null = null;
+export class HealthChecker {
+  private readonly log: Logger;
+  private cached: { up: boolean; at: number } | null = null;
 
-async function probe(): Promise<boolean> {
-  try {
-    const res = await fetch(config.immich.url + config.immich.healthPath, {
-      method: "GET",
-      redirect: "manual",
-      signal: AbortSignal.timeout(config.healthTimeoutMs),
-    });
-    // Any non-5xx, non-network response means something is listening and
-    // serving. Immich's /api/server/ping returns 200 {"res":"pong"}.
-    return res.status < 500;
-  } catch {
-    return false;
+  constructor(logger: Logger) {
+    this.log = logger.child({ component: "health" });
   }
-}
 
-export async function isImmichUp(): Promise<boolean> {
-  const now = Date.now();
-  if (cached && now - cached.at < config.healthCacheMs) return cached.up;
-  const up = await probe();
-  cached = { up, at: now };
-  return up;
-}
+  private async probe(): Promise<boolean> {
+    const url = config.upstream.url + config.upstream.healthPath;
+    try {
+      const res = await fetch(url, {
+        method: "GET",
+        redirect: "manual",
+        signal: AbortSignal.timeout(config.healthTimeoutMs),
+      });
+      // Any non-5xx, non-network response means something is listening and
+      // serving. Immich's /api/server/ping returns 200 {"res":"pong"}.
+      const up = res.status < 500;
+      this.log.debug(`probe ${url} -> ${res.status} (${up ? "up" : "down"})`);
+      return up;
+    } catch (error) {
+      this.log.debug(`probe ${url} failed: ${(error as Error).message} (down)`);
+      return false;
+    }
+  }
 
-// Force the next isImmichUp() call to re-probe (used right after a wake so we
-// notice "up" as soon as possible).
-export function invalidateHealthCache(): void {
-  cached = null;
+  async isUp(): Promise<boolean> {
+    const now = Date.now();
+    if (this.cached && now - this.cached.at < config.healthCacheMs) {
+      this.log.debug(`cache hit -> ${this.cached.up ? "up" : "down"}`);
+      return this.cached.up;
+    }
+    const up = await this.probe();
+    this.cached = { up, at: now };
+    return up;
+  }
+
+  // Force the next isUp() call to re-probe (used right after a wake so we
+  // notice "up" as soon as possible).
+  invalidate(): void {
+    this.log.debug("health cache invalidated");
+    this.cached = null;
+  }
 }

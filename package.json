@@ -12,11 +12,13 @@
     "dev": "node --watch src/server.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "dependencies": {
     "ajv": "^8.17.1",
-    "http-proxy-3": "^1.20.5"
+    "http-proxy-3": "^1.20.5",
+    "winston": "^3.19.0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

@@ -6,14 +6,25 @@ import { config } from "./config.ts";
 
 const STATUS_PATH = "/__wake/status";
 
+// Minimal HTML-escape so configured title/message can't break out of the markup.
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
+}
+
 export function waitingPage(): string {
+  const title = escapeHtml(config.waiting.title);
+  const message = escapeHtml(config.waiting.message);
   return `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
-<title>Waking the photo server…</title>
+<title>${title}…</title>
 <style>
   :root { color-scheme: dark; }
   * { box-sizing: border-box; }
@@ -53,8 +64,8 @@ export function waitingPage(): string {
 <body>
   <main class="card">
     <div class="spinner" role="status" aria-label="Loading"></div>
-    <h1>Waking the photo server<span class="dot">…</span></h1>
-    <p>This usually takes a moment. You'll be sent to your photos automatically once it's ready.</p>
+    <h1>${title}<span class="dot">…</span></h1>
+    <p>${message}</p>
     <p class="meta" id="meta">Elapsed: 0s</p>
   </main>
 <script>

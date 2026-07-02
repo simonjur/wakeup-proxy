@@ -2,42 +2,59 @@
 // Home Assistant / re-send magic packets too often.
 
 import { config } from "./config.ts";
-import { isImmichUp, invalidateHealthCache } from "./health.ts";
-import { triggerWake } from "./wake.ts";
+import type { HealthChecker } from "./health.ts";
+import type { Logger } from "./logger.ts";
+import type { WakeService } from "./wake.ts";
 
 export type Status = "up" | "waking";
 
-let lastWakeAt = 0;
-let isInFlight = false;
+export class WakeController {
+  private readonly health: HealthChecker;
+  private readonly wake: WakeService;
+  private readonly log: Logger;
 
-// Returns "up" if Immich answers, otherwise ensures a wake has been requested
-// (respecting the cooldown) and returns "waking".
-export async function checkAndWake(): Promise<Status> {
-  if (await isImmichUp()) return "up";
+  private lastWakeAt = 0;
+  private isInFlight = false;
 
-  const now = Date.now();
-  const isCooledDown = now - lastWakeAt >= config.wakeCooldownMs;
-
-  if (isCooledDown && !isInFlight) {
-    lastWakeAt = now;
-    isInFlight = true;
-    // Fire and forget: don't block the current request on the wake completing.
-    void wakeInBackground();
+  constructor(health: HealthChecker, wake: WakeService, logger: Logger) {
+    this.health = health;
+    this.wake = wake;
+    this.log = logger.child({ component: "wake-controller" });
   }
 
-  return "waking";
-}
+  private async wakeInBackground(): Promise<void> {
+    try {
+      await this.wake.triggerWake();
+      // Probe again soon rather than trusting the cached "down".
+      this.health.invalidate();
+    } catch (error) {
+      this.log.error(`wake failed: ${(error as Error).message}`);
+      // Allow an immediate retry on the next request.
+      this.lastWakeAt = 0;
+    } finally {
+      this.isInFlight = false;
+    }
+  }
 
-async function wakeInBackground(): Promise<void> {
-  try {
-    await triggerWake();
-    // Probe again soon rather than trusting the cached "down".
-    invalidateHealthCache();
-  } catch (error) {
-    console.error("[wake] failed:", (error as Error).message);
-    // Allow an immediate retry on the next request.
-    lastWakeAt = 0;
-  } finally {
-    isInFlight = false;
+  // Returns "up" if Immich answers, otherwise ensures a wake has been requested
+  // (respecting the cooldown) and returns "waking".
+  async checkAndWake(): Promise<Status> {
+    if (await this.health.isUp()) return "up";
+
+    const now = Date.now();
+    const isCooledDown = now - this.lastWakeAt >= config.wakeCooldownMs;
+
+    if (isCooledDown && !this.isInFlight) {
+      this.lastWakeAt = now;
+      this.isInFlight = true;
+      // Fire and forget: don't block the current request on the wake completing.
+      void this.wakeInBackground();
+    } else {
+      this.log.debug(
+        `skipping wake (${this.isInFlight ? "already in flight" : "still cooling down"})`,
+      );
+    }
+
+    return "waking";
   }
 }

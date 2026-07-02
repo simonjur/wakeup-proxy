@@ -33,13 +33,15 @@ Then point your browser / external reverse proxy / Tailscale at the Pi on
 
 All via env vars (see `.env.example`). Key ones:
 
-| Var                  | Default            | Notes                                                                         |
-| -------------------- | ------------------ | ----------------------------------------------------------------------------- |
-| `IMMICH_URL`         | – (required)       | e.g. `http://192.168.1.10:2283`                                               |
-| `IMMICH_HEALTH_PATH` | `/api/server/ping` | treated as up on any non-5xx response                                         |
-| `PORT` / `HOST`      | `3000` / `0.0.0.0` | proxy listen address                                                          |
-| `WAKE_COOLDOWN_MS`   | `60000`            | min gap between wake calls; also the WoL re-send interval while still booting |
-| `POLL_INTERVAL_MS`   | `3000`             | waiting-page poll cadence                                                     |
+| Var                    | Default             | Notes                                                                           |
+| ---------------------- | ------------------- | ------------------------------------------------------------------------------- |
+| `UPSTREAM_URL`         | – (required)        | service to proxy to, e.g. `http://192.168.1.10:2283`                            |
+| `UPSTREAM_HEALTH_PATH` | `/`                 | probed path; treated as up on any non-5xx response (Immich: `/api/server/ping`) |
+| `WAITING_TITLE`        | `Waking the server` | heading shown on the waiting page                                               |
+| `WAITING_MESSAGE`      | see `.env.example`  | sub-text shown on the waiting page                                              |
+| `PORT` / `HOST`        | `3000` / `0.0.0.0`  | proxy listen address                                                            |
+| `WAKE_COOLDOWN_MS`     | `60000`             | min gap between wake calls; also the WoL re-send interval while still booting   |
+| `POLL_INTERVAL_MS`     | `3000`              | waiting-page poll cadence                                                       |
 
 ### Wake action
 

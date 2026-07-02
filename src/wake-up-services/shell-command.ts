@@ -3,17 +3,20 @@
 
 import { execFile } from "node:child_process";
 
-import { config, type ShellCommandConfig } from "../config.ts";
+import type { ShellCommandConfig } from "../config.ts";
+import type { Logger } from "../logger.ts";
 import type { ServiceWakeUpTrigger } from "../wake-trigger.ts";
 
 export class ShellCommandWakeUpTrigger implements ServiceWakeUpTrigger {
   private readonly shell: ShellCommandConfig;
   private readonly timeoutMs: number;
+  private readonly log: Logger;
   readonly name = "shell-command";
 
-  constructor(shell: ShellCommandConfig, timeoutMs: number) {
+  constructor(shell: ShellCommandConfig, timeoutMs: number, logger: Logger) {
     this.shell = shell;
     this.timeoutMs = timeoutMs;
+    this.log = logger.child({ component: this.name });
   }
 
   get enabled(): boolean {
@@ -26,6 +29,7 @@ export class ShellCommandWakeUpTrigger implements ServiceWakeUpTrigger {
       throw new Error("WAKE_SHELL_COMMAND is not configured");
     }
 
+    this.log.debug(`running: ${command}`);
     await new Promise<void>((resolve, reject) => {
       // Run through the system shell so pipes/args in the command work as written.
       execFile("/bin/sh", ["-c", command], { timeout: this.timeoutMs }, (error, stdout, stderr) => {
@@ -34,14 +38,9 @@ export class ShellCommandWakeUpTrigger implements ServiceWakeUpTrigger {
           reject(new Error(`shell command failed: ${detail}`));
           return;
         }
-        console.log("[wake] shell command ran");
+        this.log.info("shell command ran");
         resolve();
       });
     });
   }
 }
-
-export const shellCommandTrigger = new ShellCommandWakeUpTrigger(
-  config.shell,
-  config.wakeTimeoutMs,
-);

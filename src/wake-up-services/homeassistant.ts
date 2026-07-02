@@ -3,17 +3,20 @@
 //   2. Service  -> POST {HA_BASE_URL}/api/services/{domain}/{service}
 //                  with a long-lived access token, e.g. wake_on_lan or a script.
 
-import { config, type HomeAssistantConfig } from "../config.ts";
+import type { HomeAssistantConfig } from "../config.ts";
+import type { Logger } from "../logger.ts";
 import type { ServiceWakeUpTrigger } from "../wake-trigger.ts";
 
 export class HomeAssistantWakeUpTrigger implements ServiceWakeUpTrigger {
   private readonly ha: HomeAssistantConfig;
   private readonly timeoutMs: number;
+  private readonly log: Logger;
   readonly name = "home-assistant";
 
-  constructor(ha: HomeAssistantConfig, timeoutMs: number) {
+  constructor(ha: HomeAssistantConfig, timeoutMs: number, logger: Logger) {
     this.ha = ha;
     this.timeoutMs = timeoutMs;
+    this.log = logger.child({ component: this.name });
   }
 
   get enabled(): boolean {
@@ -31,7 +34,7 @@ export class HomeAssistantWakeUpTrigger implements ServiceWakeUpTrigger {
       if (!res.ok) {
         throw new Error(`HA webhook returned ${res.status} ${res.statusText}`);
       }
-      console.log("[wake] webhook fired");
+      this.log.info(`webhook fired -> ${res.status} ${res.statusText}`);
       return;
     }
 
@@ -45,6 +48,7 @@ export class HomeAssistantWakeUpTrigger implements ServiceWakeUpTrigger {
     const name = service.slice(dot + 1);
     const url = `${ha.baseUrl}/api/services/${domain}/${name}`;
 
+    this.log.debug(`calling ${domain}.${name} at ${url}`);
     const res = await fetch(url, {
       method: "POST",
       headers: {
@@ -66,8 +70,6 @@ export class HomeAssistantWakeUpTrigger implements ServiceWakeUpTrigger {
         `HA ${domain}.${name} returned ${res.status} ${res.statusText} ${text}`.trim(),
       );
     }
-    console.log(`[wake] called ${domain}.${name}`);
+    this.log.info(`called ${domain}.${name} -> ${res.status} ${res.statusText}`);
   }
 }
-
-export const homeAssistantTrigger = new HomeAssistantWakeUpTrigger(config.ha, config.wakeTimeoutMs);
