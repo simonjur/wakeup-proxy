@@ -47,7 +47,16 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      # Downloads the Chromium binary + its OS libraries onto the runner.
+      # Cache the downloaded browser between runs (busts when the lockfile,
+      # and thus the Playwright version, changes).
+      - name: Cache Playwright browsers
+        uses: actions/cache@v6
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      # Downloads the Chromium binary + its OS libraries onto the runner. On a
+      # cache hit we still install the OS deps but skip re-downloading the binary.
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
       - name: Run e2e tests
