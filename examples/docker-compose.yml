@@ -1,0 +1,32 @@
+# Manual test for the shell-command wake service.
+#
+# The proxy starts with its upstream DOWN (backend.js isn't running yet), so the
+# first request shows the waiting page and fires WAKE_SHELL_COMMAND. That command
+# launches backend.js — a tiny "I'm alive!" server — inside the proxy container.
+# The waiting page then polls, sees the upstream come up, and reloads into it.
+#
+# Run from this directory:
+#   docker compose up --build
+# Then open http://localhost:3000 and watch this terminal for "I'm alive!".
+
+services:
+  wakeup-proxy-example:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    container_name: wakeup-proxy-example
+    ports:
+      - "3000:3000"
+    environment:
+      # Upstream = the backend the wake command starts, on localhost inside the container.
+      UPSTREAM_URL: http://127.0.0.1:8080
+      UPSTREAM_HEALTH_PATH: /
+      # Snappy timings so the manual test doesn't make you wait.
+      HEALTH_CACHE_MS: "1000"
+      POLL_INTERVAL_MS: "2000"
+      WAKE_COOLDOWN_MS: "10000"
+      # The wake action: start backend.js in the background, sending its output to
+      # the container's stdout (PID 1's fd 1) so "I'm alive!" shows in the logs.
+      WAKE_SHELL_COMMAND: "node /examples/backend.js >/proc/1/fd/1 2>&1 &"
+    volumes:
+      - ./backend.js:/examples/backend.js:ro
