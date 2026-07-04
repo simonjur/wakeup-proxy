@@ -1,10 +1,13 @@
-// Tiny stand-in "upstream" for the shell-command wake e2e test.
+// Tiny stand-in "upstream" for the wake e2e tests.
 //
-// The proxy's WAKE_SHELL_COMMAND launches this on demand. Once it's listening,
-// the proxy's health check passes and requests get proxied through to it. It
-// serves a minimal HTML page so a browser renders "I'm alive!" on screen.
+// A wake action (shell command, or the mock Home Assistant service) launches
+// this on demand. Once it's listening, the proxy's health check passes and
+// requests get proxied through to it. It serves a minimal HTML page so a browser
+// renders "I'm alive!" on screen.
 //
-// Usage: node backend.mjs <port>
+// Node 24 runs this .ts file directly via native type stripping — no build step.
+//
+// Usage: node backend.ts <port>
 
 import http from "node:http";
 

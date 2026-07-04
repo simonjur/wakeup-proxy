@@ -1,6 +1,7 @@
 # node:24 runs .ts directly via native type stripping — no build step.
-# The slim image is multi-arch, so this builds/runs on a Raspberry Pi (arm64).
-FROM node:24-slim
+# The alpine image is multi-arch and much smaller, so this builds/runs on a
+# Raspberry Pi (arm64) too.
+FROM node:24-alpine
 
 WORKDIR /app
 
