@@ -263,6 +263,7 @@ function loadConfig(): Config {
     upstream: {
       url: valid.upstream.url.replace(/\/+$/, ""),
       healthPath: valid.upstream.healthPath,
+      icon: resolveIconUrl(valid.upstream.icon),
     },
     waiting: {
       title: valid.waiting.title,

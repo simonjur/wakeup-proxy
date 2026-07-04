@@ -18,6 +18,9 @@ function escapeHtml(value: string): string {
 export function waitingPage(): string {
   const title = escapeHtml(config.waiting.title);
   const message = escapeHtml(config.waiting.message);
+  const logo = config.upstream.icon
+    ? `<img class="logo" src="${escapeHtml(config.upstream.icon)}" alt="" aria-hidden="true">`
+    : "";
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -42,6 +45,13 @@ export function waitingPage(): string {
     padding: 2.5rem 2rem;
     text-align: center;
   }
+  .logo {
+    display: block;
+    width: 4rem;
+    height: 4rem;
+    margin: 0 auto 1.75rem;
+    object-fit: contain;
+  }
   .spinner {
     width: 3.25rem;
     height: 3.25rem;
@@ -63,6 +73,7 @@ export function waitingPage(): string {
 </head>
 <body>
   <main class="card">
+    ${logo}
     <div class="spinner" role="status" aria-label="Loading"></div>
     <h1>${title}<span class="dot">…</span></h1>
     <p>${message}</p>
