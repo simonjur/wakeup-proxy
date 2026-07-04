@@ -10,6 +10,8 @@ import { Ajv, type JSONSchemaType } from "ajv";
 export interface UpstreamConfig {
   url: string;
   healthPath: string;
+  // Fully-resolved URL of a logo shown on the waiting page, or undefined.
+  icon?: string;
 }
 
 export interface WaitingConfig {
@@ -83,6 +85,7 @@ interface RawConfig {
   upstream: {
     url: string;
     healthPath: string;
+    icon?: string;
   };
   waiting: {
     title: string;
@@ -111,6 +114,7 @@ const schema: JSONSchemaType<RawConfig> = {
       properties: {
         url: { type: "string", minLength: 1 },
         healthPath: { type: "string", default: "/" },
+        icon: { type: "string", nullable: true },
       },
       required: ["url"],
     },
@@ -178,6 +182,18 @@ function parseJsonObject(name: string): Record<string, unknown> {
   return parsed as Record<string, unknown>;
 }
 
+// Resolve an UPSTREAM_ICON value into a logo URL. An "sh-" prefix is shorthand
+// for a selfh.st icon (https://selfh.st/icons/): "sh-mail-archiver" expands to
+// the project's CDN-hosted SVG. Any other value is treated as a full URL.
+function resolveIconUrl(raw?: string): string | undefined {
+  if (!raw) return undefined;
+  if (raw.startsWith("sh-")) {
+    const name = raw.slice("sh-".length);
+    return `https://cdn.jsdelivr.net/gh/selfhst/icons@main/svg/${encodeURIComponent(name)}.svg`;
+  }
+  return raw;
+}
+
 // Drop undefined keys so ajv's `useDefaults` and `required` behave predictably.
 function compact<T extends Record<string, unknown>>(object: T): T {
   const out: Record<string, unknown> = {};
@@ -211,6 +227,7 @@ function loadConfig(): Config {
     upstream: compact({
       url: optionalString("UPSTREAM_URL"),
       healthPath: optionalString("UPSTREAM_HEALTH_PATH"),
+      icon: optionalString("UPSTREAM_ICON"),
     }),
     waiting: compact({
       title: optionalString("WAITING_TITLE"),

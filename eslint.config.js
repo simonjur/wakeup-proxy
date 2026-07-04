@@ -30,6 +30,15 @@ export default tseslint.config(
     },
   },
 
+  // Tests use the conventional __tests__ dir and *.test.ts names, which the
+  // kebab-case filename rule would otherwise reject.
+  {
+    files: ["src/__tests__/**/*.ts"],
+    rules: {
+      "unicorn/filename-case": "off",
+    },
+  },
+
   // Prettier last: turn off all formatting-related lint rules.
   prettier,
 );
