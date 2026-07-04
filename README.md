@@ -130,3 +130,10 @@ sudo systemctl enable --now immich-wake-proxy
 - This only **wakes** server A. Putting it back to sleep when idle is out of
   scope — handle that on server A itself (e.g. an autosuspend timer that checks
   for active Immich sessions / connections).
+
+## TODO
+
+- Finalize unit tests
+- add native magic packet support
+- add proxmox vm/lxc wake support
+- define specs for this repo and make AI verify them
