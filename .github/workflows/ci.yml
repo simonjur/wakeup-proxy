@@ -50,6 +50,11 @@ jobs:
       - name: Unit tests
         run: npm run tests:unit
 
+      - name: SonarQube Scan
+        uses: SonarSource/sonarqube-scan-action@v8
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
   e2e:
     name: E2E
     runs-on: ubuntu-latest
