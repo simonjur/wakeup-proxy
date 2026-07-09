@@ -31,11 +31,13 @@ export default tseslint.config(
   },
 
   // Tests use the conventional __tests__ dir and *.test.ts names, which the
-  // kebab-case filename rule would otherwise reject.
+  // kebab-case filename rule would otherwise reject. They also mock Node's
+  // EventEmitter-based streams (http.ServerResponse), so EventTarget doesn't fit.
   {
     files: ["src/__tests__/**/*.ts"],
     rules: {
       "unicorn/filename-case": "off",
+      "unicorn/prefer-event-target": "off",
     },
   },
 

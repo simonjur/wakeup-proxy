@@ -40,6 +40,13 @@ export interface ShellCommandConfig {
   enabled: boolean;
 }
 
+export interface MetricsConfig {
+  // True when the Prometheus /metrics endpoint should be served.
+  enabled: boolean;
+  // Path the metrics are exposed on (METRICS_URL), e.g. "/metrics".
+  path: string;
+}
+
 export interface Config {
   host: string;
   port: number;
@@ -56,6 +63,7 @@ export interface Config {
   waiting: WaitingConfig;
   ha: HomeAssistantConfig;
   shell: ShellCommandConfig;
+  metrics: MetricsConfig;
 }
 
 // ---- Raw (pre-validation) shape ------------------------------------------
@@ -82,6 +90,7 @@ interface RawConfig {
   wakeCooldownMs: number;
   wakeTimeoutMs: number;
   pollIntervalMs: number;
+  metricsUrl: string;
   upstream: {
     url: string;
     healthPath: string;
@@ -107,6 +116,9 @@ const schema: JSONSchemaType<RawConfig> = {
     wakeCooldownMs: { type: "integer", default: 60_000 },
     wakeTimeoutMs: { type: "integer", default: 5000 },
     pollIntervalMs: { type: "integer", default: 3000 },
+
+    // Empty string disables the /metrics endpoint entirely.
+    metricsUrl: { type: "string", default: "/metrics" },
 
     upstream: {
       type: "object",
@@ -224,6 +236,9 @@ function loadConfig(): Config {
     wakeCooldownMs: optionalString("WAKE_COOLDOWN_MS"),
     wakeTimeoutMs: optionalString("WAKE_TIMEOUT_MS"),
     pollIntervalMs: optionalString("POLL_INTERVAL_MS"),
+    // Read directly (not via optionalString) so an explicit "" survives and can
+    // disable the endpoint; an unset var falls through to the "/metrics" default.
+    metricsUrl: process.env.METRICS_URL,
     upstream: compact({
       url: optionalString("UPSTREAM_URL"),
       healthPath: optionalString("UPSTREAM_HEALTH_PATH"),
@@ -260,6 +275,10 @@ function loadConfig(): Config {
     wakeCooldownMs: valid.wakeCooldownMs,
     wakeTimeoutMs: valid.wakeTimeoutMs,
     pollIntervalMs: valid.pollIntervalMs,
+    metrics: {
+      enabled: valid.metricsUrl !== "",
+      path: valid.metricsUrl,
+    },
     upstream: {
       url: valid.upstream.url.replace(/\/+$/, ""),
       healthPath: valid.upstream.healthPath,

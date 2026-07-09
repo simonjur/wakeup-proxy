@@ -10,6 +10,13 @@ import { createProxyServer } from "http-proxy-3";
 import { config } from "./config.ts";
 import { HealthChecker } from "./health.ts";
 import { createLogger } from "./logger.ts";
+import {
+  initMetrics,
+  metricsContentType,
+  observeRequest,
+  renderMetrics,
+  setUpstreamUp,
+} from "./metrics.ts";
 import { WakeController } from "./state.ts";
 import { WakeService } from "./wake.ts";
 import { waitingPage } from "./waiting-page.ts";
@@ -24,6 +31,8 @@ const proxyLog = logger.child({ component: "proxy" });
 const health = new HealthChecker(logger);
 const wake = new WakeService(logger);
 const controller = new WakeController(health, wake, logger);
+
+if (config.metrics.enabled) initMetrics();
 
 const proxy = createProxyServer({
   target: config.upstream.url,
@@ -70,6 +79,7 @@ function wantsHtml(request: http.IncomingMessage): boolean {
 }
 
 const server = http.createServer((request, res) => {
+  if (config.metrics.enabled) observeRequest(request, res);
   void handleRequest(request, res);
 });
 
@@ -78,6 +88,14 @@ async function handleRequest(
   res: http.ServerResponse,
 ): Promise<void> {
   const path = (request.url ?? "/").split("?", 1)[0];
+
+  // Prometheus scrape endpoint (path configurable via METRICS_URL).
+  if (config.metrics.enabled && path === config.metrics.path) {
+    setUpstreamUp(await health.isUp());
+    res.writeHead(200, { "Content-Type": metricsContentType, "Cache-Control": "no-store" });
+    res.end(await renderMetrics());
+    return;
+  }
 
   // Internal status endpoint used by the waiting page poller.
   if (path === STATUS_PATH) {
@@ -118,6 +136,9 @@ server.on("upgrade", (request, socket, head) => {
 server.listen(config.port, config.host, () => {
   serverLog.info(`wakeup-proxy listening on http://${config.host}:${config.port}`);
   serverLog.info(`upstream: ${config.upstream.url} (health: ${config.upstream.healthPath})`);
+  if (config.metrics.enabled) {
+    serverLog.info(`metrics: Prometheus endpoint at ${config.metrics.path}`);
+  }
   if (wake.enabledTriggers.length > 0) {
     const names = wake.enabledTriggers.map((t) => t.name).join(", ");
     serverLog.info(`wake: ${names} (cooldown ${config.wakeCooldownMs}ms)`);

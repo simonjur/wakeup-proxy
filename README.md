@@ -42,6 +42,16 @@ All via env vars (see `.env.example`). Key ones:
 | `PORT` / `HOST`        | `3000` / `0.0.0.0`  | proxy listen address                                                            |
 | `WAKE_COOLDOWN_MS`     | `60000`             | min gap between wake calls; also the WoL re-send interval while still booting   |
 | `POLL_INTERVAL_MS`     | `3000`              | waiting-page poll cadence                                                       |
+| `METRICS_URL`          | `/metrics`          | path for the Prometheus metrics endpoint; set empty to disable                  |
+
+### Metrics
+
+When `METRICS_URL` is set (default `/metrics`), a Prometheus endpoint exposes:
+
+- default Node.js process/runtime metrics (`prom-client`)
+- `wakeup_proxy_upstream_up` – target status, `1` up / `0` down (sampled at scrape time)
+- `wakeup_proxy_http_requests_total{method}` – request count by HTTP method
+- `wakeup_proxy_http_responses_total{code}` – response count by status code
 
 ### Wake action
 
